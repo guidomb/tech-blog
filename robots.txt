@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: 
+
+Sitemap: http://guidomb.github.io/tech-blog/sitemap.xml 

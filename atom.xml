@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[exit(0);]]></title>
+  <link href="http://guidomb.github.io/tech-blog/atom.xml" rel="self"/>
+  <link href="http://guidomb.github.io/tech-blog/"/>
+  <updated>2015-01-01T23:29:51-03:00</updated>
+  <id>http://guidomb.github.io/tech-blog/</id>
+  <author>
+    <name><![CDATA[Guido Marucci Blas]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+</feed>
