@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Frp | exit(0);]]></title>
   <link href="http://guidomb.github.io/tech-blog/blog/categories/frp/atom.xml" rel="self"/>
   <link href="http://guidomb.github.io/tech-blog/"/>
-  <updated>2015-03-03T10:34:33-03:00</updated>
+  <updated>2015-03-03T15:33:10-03:00</updated>
   <id>http://guidomb.github.io/tech-blog/</id>
   <author>
     <name><![CDATA[Guido Marucci Blas]]></name>
@@ -87,19 +87,18 @@
     _username = @"";
     _password = @"";
 
-    RAC(self, usernameValid) = [RACObserve(self, username) map:^(NSString * username) {
+    RACSignal * usernameValidSignal = [RACObserve(self, username) map:^(NSString * username) {
       return @(username != nil &amp;&amp; username.length &gt; 5);
     }];
-    RAC(self, passwordValid) = [RACObserve(self, password) map:^(NSString * password) {
+
+    RACSignal * passwordValidSignal = [RACObserve(self, password) map:^(NSString * password) {
       return @(password != nil &amp;&amp; password.length &gt; 4);
     }];
 
-    RACSignal * loginEnabled = [RACSignal combineLatest:@[
-      RACObserve(self, usernameValid),
-      RACObserve(self, passwordValid)
-    ] reduce:^(NSNumber * usernameValid, NSNumber * passwordValid) {
-        return @(usernameValid.boolValue &amp;&amp; passwordValue.boolValue);
-    }];
+    RAC(self, usernameValid) = usernameValidSignal;
+    RAC(self, passwordValid) = passwordValidSignal;
+
+    RACSignal * loginEnabled = [[RACSignal combineLatest:@[usernameValidSignal, passwordValidSignal]] and];
 
     _login = [[RACCommand alloc] initWithEnabled:loginEnabled signalBlock:^(id sender) {
       return [SessionService loginWithUsername:self.username password:self.password];
@@ -176,7 +175,7 @@
     [self.data addObjectsFromArray:data];
     self.nextPage++;
     return data;
-  }] replay];
+  }] replayLazily];
 }
 
 @end
@@ -185,7 +184,7 @@
 <p>As you can see the implementation of <code>TableViewModel</code> is pretty simple, the important part is in the private <code>performFetch</code> method that is called inside the signal block associated with the <code>fetchNextPage</code> command. <em>We are using replay before returning the signal in <code>performFetch</code> to cache the result of the map and
 avoid the execution of the side effects (to increase the <code>nextPage</code> counter) in case several subscriptions get created to this signal.</em></p>
 
-<p>Now that we have implemented <code>TableViewModel</code> it&rsquo;s time to test the it and in order to do that I use <a href="https://github.com/specta/specta">Specta</a> + <a href="https://github.com/specta/expecta">Expecta</a> matchers + <a href="https://github.com/jonreid/OCMockito">OCMockito</a>. <em>For the purpose of this blog post I am only going to show a reduced version of the <code>TableViewModelSpec</code>.</em></p>
+<p>Now that we have implemented <code>TableViewModel</code> it&rsquo;s time to test it and in order to do that I use <a href="https://github.com/specta/specta">Specta</a> + <a href="https://github.com/specta/expecta">Expecta</a> matchers + <a href="https://github.com/jonreid/OCMockito">OCMockito</a>. <em>For the purpose of this blog post I am only going to show a reduced version of the <code>TableViewModelSpec</code>.</em></p>
 
 <p>The following spec asserts that after calling <code>fetchNextPage</code> the page counter gets increased. In this case we are calling <code>fetchNextPage</code> 3 times thus making the last value of <code>requestPage</code> equal to 2 (because we have requested page 0, 1 and 2). We only want to fetch a page after the previous page was successfully fetched. That is why we are using <code>concat:</code> because it will subscribe to the concatenated signal after the first signal has completed. <code>completionSignal</code> is a signal that will first fetch page 0 and after it&rsquo;s completed it will fetch page 1 and after it&rsquo;s completed it will fetch page 2 and then will complete. If any of the concatenated signals errors <code>completionSignal</code>, will error immediately.</p>
 
