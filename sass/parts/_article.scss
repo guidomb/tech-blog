@@ -1,7 +1,5 @@
 article{
-	
-	
-	padding: 30px 0;
+	padding: 0 0 60px 0;
 	position: relative;
 	@media screen and (max-width: 620px){
 		padding-bottom: 15px;
@@ -10,7 +8,7 @@ article{
 		padding: 15px 0;
 	}
 	h2.title{
-		font-size: 36px;
+		font-size: 32px;
 		font-weight: 300;
 		line-height: 1;
 		margin-bottom: 20px;
@@ -18,14 +16,14 @@ article{
 		text-align:left;
 		border-bottom: 0px;
 		a{
-			color: #333;
+			color: $color-gray01;
 		}
 		a:hover{
 		color: $color-main;
 		border-bottom: 0px;
 		}
 		border-bottom: 1px solid $color-gray04;
-		padding-bottom: .75em;
+		padding-bottom: 20px;
 		@media screen and (max-width: 620px) {
 		font-size: 18px;
 		}
@@ -71,8 +69,8 @@ article{
 			
 		}
 		p, blockquote, ul, ol, dl, table, iframe, h1, h2, h3, h4, h5, h6, .video-container{
-			margin-top: 1.5em;
-			margin-bottom: 1.5em;
+			//margin-top: 1.5em;
+			//margin-bottom: 1.5em;
 		}
 		ul, ol, dl{
 			margin-left: 20px;

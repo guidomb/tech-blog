@@ -6,6 +6,13 @@ sup, sub {
 
 .footnotes {
 	font-size: 80%;
+	margin-top: 10px;
+
+	hr {
+		border-width: 1px 0px 0px;
+		border-style: dotted;
+		width: 30%;
+	}
 }
 
 // Put the CSS for the popup here.
