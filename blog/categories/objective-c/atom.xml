@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: objective-c | exit(0);]]></title>
+  <link href="http://guidomb.github.io/tech-blog/blog/categories/objective-c/atom.xml" rel="self"/>
+  <link href="http://guidomb.github.io/tech-blog/"/>
+  <updated>2015-03-03T10:05:34-03:00</updated>
+  <id>http://guidomb.github.io/tech-blog/</id>
+  <author>
+    <name><![CDATA[Guido Marucci Blas]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[RACCommand's immediateEnabled property]]></title>
+    <link href="http://guidomb.github.io/tech-blog/blog/2015/03/01/raccommand-immediateenabled/"/>
+    <updated>2015-03-01T21:11:59-03:00</updated>
+    <id>http://guidomb.github.io/tech-blog/blog/2015/03/01/raccommand-immediateenabled</id>
+    <content type="html"><![CDATA[<p>For the last couple months I&rsquo;ve been doing a lot of <a href="https://github.com/ReactiveCocoa/ReactiveCocoa">ReactiveCocoa</a> for different iOS projects and let me tell you; it is pretty fucking awesome!!!. I know it&rsquo;s been around for <a href="https://github.com/ReactiveCocoa/ReactiveCocoa/releases/tag/v0.5.0">a couple years</a> &hellip; yeah yeah <a href="https://developer.apple.com/library/mac/documentation/Swift/Conceptual/Swift_Programming_Language/index.html">Swift</a> is the big thing now, Objective-C is dead and the <a href="https://github.com/ReactiveCocoa/ReactiveCocoa/pull/1382">Swift version</a> of ReactiveCocoa is around the corner (maybe).</p>
+
+<p><em>I don&rsquo;t actually think Objective-C is dead and I am probably still going to use it, at least until the libraries get a little more mature and XCode stops crashing 10 times per day.</em></p>
+
+<p>This post is NOT about how happy I feel using <strong>ReactiveCocoa</strong> or how it feels so right using it to implement the <a href="http://en.wikipedia.org/wiki/Model_View_ViewModel">MVVM</a> pattern. This post is about something I learned about <a href="https://github.com/ReactiveCocoa/ReactiveCocoa/blob/master/ReactiveCocoa/RACCommand.h">RACCommand</a>&rsquo;s internals.</p>
+
+<p>As you may <a href="https://github.com/ReactiveCocoa/ReactiveCocoa/blob/master/Documentation/FrameworkOverview.md#commands">know</a> <code>RACCommand</code> is an abstraction that models a command, a user initiated action that may have some side effects. You can create a new <code>RACCommand</code> object using the <code>initWithEnabled:signalBlock:</code> initializer method. This method receives a signal as the first parameter and a block that receives an input and returns a signal as the second parameter.</p>
+
+<p>The block will be called every time the <code>execute:</code> method is invoked on the <code>RACCommand</code> object. The object that receives the block is the object that is passed to <code>execute:</code>. The signal returned by the block will be the signal returned by <code>execute:</code>.</p>
+
+<p>The signal is used to decide whether the command is enabled or disabled. This is pretty useful because when you do something like <code>self.button.rac_command = self.viewModel.someCommand</code> the enabled property of the button is automatically changed when the command is enabled or disabled, avoiding all the boilerplate code to keep the button state synced.</p>
+
+<p>Assuming we have the following interfaces
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="k">@interface</span> <span class="nc">SessionService</span> : <span class="bp">NSObject</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">User</span> <span class="o">*</span> <span class="n">currentUser</span><span class="p">;</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">ul</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;</span><span class="n">li</span><span class="o">&gt;&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="p">(</span><span class="n">RACSignal</span> <span class="o">&lt;</span><span class="n">em</span><span class="o">&gt;</span><span class="p">)</span><span class="nl">loginWithUsername</span><span class="p">:(</span><span class="bp">NSString</span> <span class="o">&lt;/</span><span class="n">em</span><span class="o">&gt;</span><span class="p">)</span><span class="n">username</span> <span class="nl">password</span><span class="p">:(</span><span class="bp">NSString</span> <span class="o">*</span><span class="p">)</span><span class="n">password</span><span class="p">;</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;&lt;/</span><span class="n">li</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;</span><span class="n">li</span><span class="o">&gt;&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="p">(</span><span class="n">RACSignal</span> <span class="o">*</span><span class="p">)</span><span class="n">logout</span><span class="p">;</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;&lt;/</span><span class="n">li</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">ul</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">@end</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">@interface</span> <span class="nc">LoginViewModel</span> : <span class="bp">NSObject</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">readonly</span><span class="p">,</span> <span class="k">getter</span><span class="o">=</span><span class="n">isUsernameValid</span><span class="p">)</span> <span class="kt">BOOL</span> <span class="n">usernameValid</span><span class="p">;</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">readonly</span><span class="p">,</span> <span class="k">getter</span><span class="o">=</span><span class="n">isPasswordValid</span><span class="p">)</span> <span class="kt">BOOL</span> <span class="n">usernameValid</span><span class="p">;</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">RACCommand</span> <span class="o">*</span> <span class="n">login</span><span class="p">;</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">)</span> <span class="bp">NSString</span> <span class="o">*</span> <span class="n">username</span><span class="p">;</span>
+</span><span class='line'><span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">)</span> <span class="bp">NSString</span> <span class="o">*</span> <span class="n">password</span><span class="p">;</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">@end</span>
+</span></code></pre></td></tr></table></div></figure></p>
+
+<p>a possible implementation for the login command could be</p>
+
+<pre><code class="objc">@implementation LoginViewModel
+
+- (instancetype)init {
+  self = [super init];
+  if (self) {
+    _username = @"";
+    _password = @"";
+
+    RAC(self, usernameValid) = [RACObserve(self, username) map:^(NSString * username) {
+      return @(username != nil &amp;&amp; username.length &gt; 5);
+    }];
+    RAC(self, passwordValid) = [RACObserve(self, password) map:^(NSString * password) {
+      return @(password != nil &amp;&amp; password.length &gt; 4);
+    }];
+
+    RACSignal * loginEnabled = [RACSignal combineLatest:@[
+      RACObserve(self, usernameValid),
+      RACObserve(self, passwordValid)
+    ] reduce:^(NSNumber * usernameValid, NSNumber * passwordValid) {
+        return @(usernameValid.boolValue &amp;&amp; passwordValue.boolValue);
+    }];
+
+    _login = [[RACCommand alloc] initWithEnabled:loginEnabled signalBlock:^(id sender) {
+      return [SessionService loginWithUsername:self.username password:self.password];
+    }];
+  }
+  return self;
+}
+
+@end
+</code></pre>
+
+<p>Based on this implementation, unless the username has 5 characters and the password has 4 characters the login command will not be enabled. Executing a disabled command (calling its <code>execute:</code> method) will result in a signal that will error with domain <code>RACCommandErrorDomain</code> and code <code>RACCommandErrorNotEnabled</code>.</p>
+
+<p>Now lets analyze a different example of how to use a <code>RACCommand</code>. Lets take for instance <a href="http://en.wikipedia.org/wiki/Pagination">pagination</a>. Most of the apps nowadays have some kind of newsfeed or activity stream. A very simple implementation of this view could fetch all the required data and display it on a <code>UITableView</code>. This could work pretty well if the data that needs to be displayed is not really big. But if we are talking about something like the Twitter&rsquo;s newsfeed doing just one query to the backend service to display all the user&rsquo;s newsfeed could result in a <a href="http://en.wikipedia.org/wiki/Denial-of-service_attack">DOS</a> or at least it would take a lot of time to answer. This is good situation to apply pagination.</p>
+
+<p>We can implement a simple view model that knows how to display a paginated list and later we can bind that view model against a <code>UITableViewController</code>. We can call that view model <code>TableViewModel</code> and a naive implementation of that view model could be</p>
+
+<pre><code class="objc">typedef RACSignal * (^PagedFetcher)(NSUInteger);
+
+@interface TableViewModel : NSObject
+
+@property (nonatomic, copy) PagedFetcher fetcher;
+@property (nonatomic, readonly) NSUInteger count;
+@property (nonatomic, readonly) RACCommand * fetchNextPage;
+@property (nonatomic, readonly) BOOL consumedAllPages;
+
+- (instancetype)initWithFetcher:(PagedFetcher)fetcher;
+
+- (id)objectAtIndexedSubscript:(NSUInteger)index;
+
+@end
+
+@interface TableViewModel ()
+
+@property (nonatomic) NSMutableArray * data;
+@property (nonatomic) NSUInteger nextPage;
+
+@end
+
+@implementation TableViewModel
+
+@dynamic count;
+
+- (instancetype)initWithFetcher:(PagedFetcher)fetcher {
+  self = [super init];
+  if (self) {
+    _fetcher = fetcher;
+    _nextPage = 0;
+    _consumedAllPages = NO;
+    _data = [NSMutableArray array];
+    @weakify(self)
+    _fetchNextPage = [[RACCommand alloc] initWithEnabled:RACObserve(self, consumedAllPages)
+                                             signalBlock:^(id value) {
+                                              @strongify(self)
+                                              return [self performFetch];
+                                             }];
+  }
+  return self;
+}
+
+- (NSUInteger)count {
+  return data.count;
+}
+
+- (id)objectAtIndexedSubscript:(NSUInteger)index {
+  return self.data[index];
+}
+
+#pragma mark - Private Methods
+
+- (RACSignal *)performFetch {
+  return [[self.fetcher(self.nextPage) map:^(NSArray * data) {
+    self.consumedAllPages = data.count == 0;
+    [self.data addObjectsFromArray:data];
+    self.nextPage++;
+    return data;
+  }] replay];
+}
+
+@end
+</code></pre>
+
+<p>As you can see the implementation of <code>TableViewModel</code> is pretty simple, the important part is in the private <code>performFetch</code> method that is called inside the signal block associated with the <code>fetchNextPage</code> command. <em>We are using replay before returning the signal in <code>performFetch</code> to cache the result of the map and
+avoid the execution of the side effects (to increase the <code>nextPage</code> counter) in case several subscriptions get created to this signal.</em></p>
+
+<p>Now that we have implemented <code>TableViewModel</code> it&rsquo;s time to test the it and in order to do that I use <a href="https://github.com/specta/specta">Specta</a> + <a href="https://github.com/specta/expecta">Expecta</a> matchers + <a href="https://github.com/jonreid/OCMockito">OCMockito</a>. <em>For the purpose of this blog post I am only going to show a reduced version of the <code>TableViewModelSpec</code>.</em></p>
+
+<p>The following spec asserts that after calling <code>fetchNextPage</code> the page counter gets increased. In this case we are calling <code>fetchNextPage</code> 3 times thus making the last value of <code>requestPage</code> equal to 2 (because we have requested page 0, 1 and 2). We only want to fetch a page after the previous page was successfully fetched. That is why we are using <code>concat:</code> because it will subscribe to the concatenated signal after the first signal has completed. <code>completionSignal</code> is a signal that will first fetch page 0 and after it&rsquo;s completed it will fetch page 1 and after it&rsquo;s completed it will fetch page 2 and then will complete. If any of the concatenated signals errors <code>completionSignal</code>, will error immediately.</p>
+
+<pre><code class="objc">SpecBegin(TableViewModel)
+
+describe(@"#fetchNexPage", ^{
+
+  __block TableViewModel * tableViewModel;
+  __block NSUInteger requestPage;
+
+  beforeEach(^{
+    tableViewModel = [[TableViewModel alloc] initWithFetcher:^(NSUInteger page) {
+      requestedPage = page;
+      NSArray * data = @[mock([NSObject class]), mock([NSObject class])];
+      return [RACSignal return:data];
+    }];
+  });
+
+  context(@"when some pages have been fetched", ^{
+
+    __block RACSignal * completionSignal;
+
+    beforeEach(^{
+        completionSignal = [[[tableViewModel.fetchNextPage execute:nil]
+                             concat:[tableViewModel.fetchNextPage execute:nil]]
+                             concat:[tableViewModel.fetchNextPage execute:nil]];
+    });
+
+    it(@"increases the page number", ^{ waitUntil(^(DoneCallback done) {
+      [completionSignal subscribeCompleted:^{
+        expect(requestPage).to.equal(2);
+        done();
+      }];
+    });});
+
+  });
+
+});
+
+SpecEnd
+</code></pre>
+
+<p>Unfortunately if you run the previous spec you will get the following error</p>
+
+<pre><code>failed to invoke done() callback before timeout (10.000000 seconds)
+</code></pre>
+
+<p>meaning that for some reason the subscribed block never got executed and the only way that that could&rsquo;ve happened is if one
+of the concatenated signals has failed. To verify this theory we can <code>subscribeError:</code> instead of <code>subscribeCompleted</code>.
+When I did this I realized that indeed the signal was sending an error and the error code was <code>RACCommandErrorNotEnabled</code>.
+This is super weird because the <code>fetchNextPage</code> command is enabled/disabled based on the <code>consumedAllPages</code> property and
+the only way this could be set to <code>NO</code> is if the fetcher&rsquo;s signal returns an empty array and that is impossible because
+we are using a fake fetcher that always returns a non-empty array.</p>
+
+<p>Digging a little bit inside the internals of <code>RACCommand</code> I realized that <code>execute:</code> does not actually use the given signal to
+decide if the command can be executed or not. (Check <a href="https://github.com/ReactiveCocoa/ReactiveCocoa/blob/master/ReactiveCocoa/RACCommand.m#L222">this</a> line and also <a href="https://github.com/ReactiveCocoa/ReactiveCocoa/blob/master/ReactiveCocoa/RACCommand.m#L203">this</a> line). When the <code>execute:</code>
+method is invoked, it first gets a value from <code>immediateEnabled</code> which is a combination of the provided enabled signal
+and another signal which is basically based on <code>allowsConcurrentExecution</code>. <code>immediateEnabled</code> sends <code>YES</code> if
+the enabled signal sends <code>YES</code> and if <code>allowsConcurrentExecution</code>
+is <code>NO</code> (which is the default) the <code>executing</code> property must
+be <code>NO</code>.</p>
+
+<p>What is happening and causing the test to fail is that when <code>execute:</code> gets invoked for the second time the change on
+the <code>executing</code> signal has not been propagated yet and although the first invocation of <code>execute:</code> has finished the
+internal state of the <code>RACCommand</code> does not reflect that.</p>
+
+<p>In a real-case scenario this is virtually impossible to happen. At least if the <code>RACCommand</code> is bound to an event
+triggered by the user, because this would probably happen in two different run loops and by that time the change
+on the <code>executing</code> property would be propagated.</p>
+
+<p>Finally the easy fix to make the test pass is to add the following statement in the <code>beforeEach</code> block</p>
+
+<pre><code>tableViewModel.fetchNextPage.allowsConcurrentExecution = YES;
+</code></pre>
+
+<p>Which I think is a valid trade-off to be made. What do you guys think? Do you have a better solution?</p>
+]]></content>
+  </entry>
+  
+</feed>
