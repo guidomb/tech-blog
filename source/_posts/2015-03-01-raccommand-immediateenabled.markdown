@@ -58,19 +58,18 @@ a possible implementation for the login command could be
     _username = @"";
     _password = @"";
 
-    RAC(self, usernameValid) = [RACObserve(self, username) map:^(NSString * username) {
+    RACSignal * usernameValidSignal = [RACObserve(self, username) map:^(NSString * username) {
       return @(username != nil && username.length > 5);
     }];
-    RAC(self, passwordValid) = [RACObserve(self, password) map:^(NSString * password) {
+
+    RACSignal * passwordValidSignal = [RACObserve(self, password) map:^(NSString * password) {
       return @(password != nil && password.length > 4);
     }];
 
-    RACSignal * loginEnabled = [RACSignal combineLatest:@[
-      RACObserve(self, usernameValid),
-      RACObserve(self, passwordValid)
-    ] reduce:^(NSNumber * usernameValid, NSNumber * passwordValid) {
-        return @(usernameValid.boolValue && passwordValue.boolValue);
-    }];
+    RAC(self, usernameValid) = usernameValidSignal;
+    RAC(self, passwordValid) = passwordValidSignal;
+
+    RACSignal * loginEnabled = [[RACSignal combineLatest:@[usernameValidSignal, passwordValidSignal]] and];
 
     _login = [[RACCommand alloc] initWithEnabled:loginEnabled signalBlock:^(id sender) {
       return [SessionService loginWithUsername:self.username password:self.password];
@@ -148,7 +147,7 @@ typedef RACSignal * (^PagedFetcher)(NSUInteger);
     [self.data addObjectsFromArray:data];
     self.nextPage++;
     return data;
-  }] replay];
+  }] replayLazily];
 }
 
 @end
