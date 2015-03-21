@@ -5,13 +5,11 @@
 <!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
 <head>
   <meta charset="utf-8">
-  <title>Blog Archive - exit(0);</title>
+  <title>XCode 6.2 Broke Objective-C&#8217;s Semantics - exit(0);</title>
   <meta name="author" content="Guido Marucci Blas">
 
   
-  <meta name="description" content="Blog Archive 2015 XCode 6.2 Broke Objective-C's Semantics
-Mar 21 2015 posted in ios, objective-c, xcode RACCommand's immediateEnabled Property
-Mar &hellip;">
+  <meta name="description" content="Yeah the new &ldquo;stable&rdquo; version of XCode is out!!! Version 6.2, we can start hacking for the Apple Watch. The problem is that after &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -20,7 +18,7 @@ Mar &hellip;">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   
-  <link rel="canonical" href="http://guidomb.github.io/tech-blog/blog/archives">
+  <link rel="canonical" href="http://guidomb.github.io/tech-blog/blog/2015/03/21/xcode-6-dot-2-broke-objective-c-semantics">
   <link href="/tech-blog/favicon.png" rel="icon">
   <link href="/tech-blog/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
   <link href="/tech-blog/atom.xml" rel="alternate" title="exit(0);" type="application/atom+xml">
@@ -100,60 +98,138 @@ Mar &hellip;">
   <div id="main">
     <div id="content">
       <div>
-<article role="article">
+<article class="hentry" role="article">
   
   <header>
-    <h1 class="entry-title">Blog Archive</h1>
+    
+      
+        <h1 class="entry-title">XCode 6.2 Broke Objective-C&#8217;s Semantics</h1>
+      
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-03-21T16:01:26-03:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>21</span><span class='date-suffix'>st</span>, <span class='date-year'>2015</span></span> <span class='time'>4:01 pm</span></time>
+        
+         | <a href="#disqus_thread">Comments</a>
+        
+        
+      </p>
     
   </header>
-  
-  <div id="blog-archives">
 
 
+<div class="entry-content"><p>Yeah the new &ldquo;stable&rdquo; version of XCode is out!!! Version 6.2, we can start hacking for the Apple Watch. The problem is that after installing XCode 6.2 the project I am working on stopped compiling. Without even reading the error message I did the usual thing when a project stops compiling out of the sudden.</p>
 
-  
-  <h2>2015</h2>
-
-<article>
-  
-<h1><a href="/tech-blog/blog/2015/03/21/xcode-6-dot-2-broke-objective-c-semantics/">XCode 6.2 Broke Objective-C&#8217;s Semantics</a></h1>
-<time datetime="2015-03-21T16:01:26-03:00" pubdate><span class='month'>Mar</span> <span class='day'>21</span> <span class='year'>2015</span></time>
-
-<footer>
-  <span class="categories">posted in <a class='category' href='/tech-blog/blog/categories/ios/'>ios</a>, <a class='category' href='/tech-blog/blog/categories/objective-c/'>objective-c</a>, <a class='category' href='/tech-blog/blog/categories/xcode/'>xcode</a></span>
-</footer>
+<ul>
+<li><code>cmd + option + shift + k</code></li>
+<li><code>sudo rm -frd /var/folders/*</code></li>
+<li><code>rm -frd ~/Library/Developers/Xcode/DerivedData/*</code></li>
+</ul>
 
 
-</article>
+<p>I did not work so it was time to read the error message:</p>
+
+<pre><code>Use of undeclared identifier '_deviceManager'
+</code></pre>
+
+<p>The piece of code that was causing the problem was a simple override of a read only property getter method:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='objc'><span class='line'><span class="p">-</span> <span class="p">(</span><span class="n">SMODeviceManager</span> <span class="o">*</span><span class="p">)</span><span class="nf">deviceManager</span> <span class="p">{</span>
+</span><span class='line'>  <span class="k">if</span> <span class="p">(</span><span class="n">_deviceManager</span> <span class="o">==</span> <span class="nb">nil</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">WLXServiceManager</span> <span class="o">*</span> <span class="n">serviceManager</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="nl">managerForServiceWithUUID</span><span class="p">:</span><span class="n">SMODeviceManager</span><span class="p">.</span><span class="n">serviceUUID</span><span class="p">];</span>
+</span><span class='line'>    <span class="n">_deviceManager</span> <span class="o">=</span> <span class="p">[[</span><span class="n">SMODeviceManager</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithServiceManager</span><span class="p">:</span><span class="n">serviceManager</span><span class="p">];</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>  <span class="k">return</span> <span class="n">_deviceManager</span><span class="p">;</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
 
 
+<p>The actual code in the previous snippet does not matter, it is just lazily initializing an instance variable inside the getter method. What matters is that that piece of code was compiling before I installed XCode 6.2.</p>
 
-<article>
-  
-<h1><a href="/tech-blog/blog/2015/03/01/raccommand-immediateenabled/">RACCommand&#8217;s immediateEnabled Property</a></h1>
-<time datetime="2015-03-01T21:11:59-03:00" pubdate><span class='month'>Mar</span> <span class='day'>01</span> <span class='year'>2015</span></time>
+<p>After a while I realized that if you declare a property and then
+you override a getter or a setter the implicit instance variable
+generated by the compiler disappears. I solved this issue by adding <code>@synthesize deviceService = _deviceService;</code>.</p>
 
-<footer>
-  <span class="categories">posted in <a class='category' href='/tech-blog/blog/categories/bdd/'>bdd</a>, <a class='category' href='/tech-blog/blog/categories/frp/'>frp</a>, <a class='category' href='/tech-blog/blog/categories/ios/'>ios</a>, <a class='category' href='/tech-blog/blog/categories/mvvm/'>mvvm</a>, <a class='category' href='/tech-blog/blog/categories/objective-c/'>objective-c</a>, <a class='category' href='/tech-blog/blog/categories/reactivecocoa/'>reactivecocoa</a></span>
-</footer>
+<p>What bothers me is that this was something that was working and they broke it in a minor update of the IDE. What is going on with Apple&rsquo;s Q&amp;A? Apple&rsquo;s software does not seem to be as good and as it used to be.</p>
 
+<p>The <a href="https://developer.apple.com/library/ios/releasenotes/DeveloperTools/RN-Xcode/Chapters/xc6_release_notes.html#//apple_ref/doc/uid/TP40001051-CH4-SW1">release notes</a> do not mention anything related to changing the behavior of properties so I assume that this is a bug. I submitted the issue to Apple and opened a <a href="http://www.openradar.me/radar?id=6753670515392512">radar</a>. In the meantime I am fixing code that used to compile.</p>
 
-</article>
-
+<p>Thanks Apple.</p>
 </div>
 
+
+  <footer>
+    <p class="meta">
+      
   
-</article>
 
 
-</div>
 
-<aside class="sidebar">
+  <span class="byline author vcard">Authored by <span class="fn">
   
+    Guido Marucci Blas
+  
+  </span></span>
+
+
+      
+
+
+
+
+<time class='entry-date' datetime='2015-03-21T16:01:26-03:00'><span class='date'><span class='date-month'>Mar</span> <span class='date-day'>21</span><span class='date-suffix'>st</span>, <span class='date-year'>2015</span></span> <span class='time'>4:01 pm</span></time>
+      
+      
+
+<span class="categories">
+  
+    <a class='category' href='/tech-blog/blog/categories/ios/'>ios</a>, <a class='category' href='/tech-blog/blog/categories/objective-c/'>objective-c</a>, <a class='category' href='/tech-blog/blog/categories/xcode/'>xcode</a>
+  
+</span>
+
+
+    </p>
     
+      <div class="sharing">
   
-</aside>
+  <a href="//twitter.com/share" class="twitter-share-button" data-url="http://guidomb.github.io/tech-blog/blog/2015/03/21/xcode-6-dot-2-broke-objective-c-semantics/" data-via="guidomb" data-counturl="http://guidomb.github.io/tech-blog/blog/2015/03/21/xcode-6-dot-2-broke-objective-c-semantics/" >Tweet</a>
+  
+  
+  
+    <div class="fb-like" data-layout="button_count" data-send="false" data-width="300" data-show-faces="false"></div>
+  
+</div>
 
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/tech-blog/blog/2015/03/01/raccommand-immediateenabled/" title="Previous Post: RACCommand's immediateEnabled property">&laquo; RACCommand&#8217;s immediateEnabled property</a>
+      
+      
+    </p>
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+
+</div>
 
     </div>
   </div>
@@ -169,7 +245,10 @@ Mar &hellip;">
       var disqus_shortname = 'exit0';
       
         
-        var disqus_script = 'count.js';
+        // var disqus_developer = 1;
+        var disqus_identifier = 'http://guidomb.github.io/tech-blog/blog/2015/03/21/xcode-6-dot-2-broke-objective-c-semantics/';
+        var disqus_url = 'http://guidomb.github.io/tech-blog/blog/2015/03/21/xcode-6-dot-2-broke-objective-c-semantics/';
+        var disqus_script = 'embed.js';
       
     (function () {
       var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
